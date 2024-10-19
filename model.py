@@ -55,7 +55,7 @@ class ResNetModel(nn.Module):
             layers.append(ResNetLayer(num_channels[i - 1], num_channels[i], num_blocks[i], stride=2))
         self.resnet_layers = nn.Sequential(*layers)
 
-        self.avgpool = nn.AvgPool2d(kernel_size=7, stride=1)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(num_channels[-1], num_classes)
     
     def forward(self, x):
@@ -68,3 +68,8 @@ class ResNetModel(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
+
+# model = ResNetModel()
+# inputs = torch.randn(16, 3, 224, 224)
+# outputs = model(inputs)
+# print(outputs.shape)
