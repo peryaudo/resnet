@@ -56,6 +56,8 @@ if __name__ == "__main__":
 
     global_steps = 0
 
+    # TODO: Match the performance shown in https://lightning.ai/docs/pytorch/stable/notebooks/lightning_examples/cifar10-baseline.html
+
     for epoch in range(20):
         for inputs, label in tqdm(train_dataloader):
             optimizer.zero_grad()

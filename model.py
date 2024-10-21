@@ -53,7 +53,10 @@ class ResNetModel(nn.Module):
         assert len(num_channels) == 4
         assert len(num_blocks) == 4
 
-        self.conv = nn.Conv2d(3, num_channels[0], kernel_size=7, stride=2, padding=3)
+        # For ImageNet
+        # self.conv = nn.Conv2d(3, num_channels[0], kernel_size=7, stride=2, padding=3, bias=False)
+        # For CIFAR-10
+        self.conv = nn.Conv2d(3, num_channels[0], kernel_size=3, stride=1, padding=1, bias=False)
         self.bn = nn.BatchNorm2d(num_channels[0])
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
