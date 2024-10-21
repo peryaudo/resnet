@@ -1,9 +1,12 @@
+import argparse
+
 import albumentations as A
 from datasets import load_dataset
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+import wandb
 
 from model import ResNetModel
 
@@ -24,6 +27,12 @@ class DatasetWrapper(Dataset):
         return image, label
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run_name", type=str, default=None, help="Name of the run")
+    args = parser.parse_args()
+
+    wandb.init(project="resnet", name=args.run_name)
+
     model = ResNetModel().to("cuda")
     loss_func = nn.CrossEntropyLoss()
     hf_dataset = load_dataset("uoft-cs/cifar10")
@@ -35,8 +44,10 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.01)
 
-    for epoch in range(10):
-        for step, (inputs, label) in enumerate(tqdm(train_dataloader)):
+    global_steps = 0
+
+    for epoch in range(20):
+        for inputs, label in tqdm(train_dataloader):
             optimizer.zero_grad()
             inputs = inputs.to("cuda")
             label = label.to("cuda")
@@ -45,12 +56,15 @@ if __name__ == "__main__":
             loss = loss_func(outputs, label)
             loss.backward()
             optimizer.step()
+            if global_steps % 100 == 0:
+                wandb.log({"train/loss": loss.detach().item()}, step=global_steps)
+            global_steps += 1
         print(f"epoch: {epoch} loss: {loss.detach().item()}")
 
         val_loss = 0.0
         correct_count = 0
         val_count = 0
-        for step, (inputs, label) in enumerate(tqdm(val_dataloader)):
+        for inputs, label in tqdm(val_dataloader):
             with torch.no_grad():
                 inputs = inputs.to("cuda")
                 label = label.to("cuda")
@@ -66,3 +80,5 @@ if __name__ == "__main__":
         accuracy = correct_count / val_count
         val_loss /= val_count
         print(f"accuracy: {accuracy} val_loss: {val_loss}")
+        wandb.log({"val/loss": val_loss, "val/accuracy": accuracy}, step=global_steps)
+    wandb.finish()
