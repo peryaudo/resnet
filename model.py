@@ -5,10 +5,13 @@ class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.conv1 = nn.Conv2d(in_channels, out_channels // 4, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels // 4)
+        self.conv2 = nn.Conv2d(out_channels // 4, out_channels // 4, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels // 4)
+        self.conv3 = nn.Conv2d(out_channels // 4, out_channels, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(out_channels)
+
         self.relu = nn.ReLU()
 
         self.residual_downsample = None
@@ -16,7 +19,6 @@ class ResidualBlock(nn.Module):
             self.residual_downsample = nn.Sequential(
                 nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride),
                 nn.BatchNorm2d(out_channels))
-
     
     def forward(self, x):
         if self.residual_downsample:
@@ -27,8 +29,13 @@ class ResidualBlock(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
+
         x = self.conv2(x)
         x = self.bn2(x)
+        x = self.relu(x)
+
+        x = self.conv3(x)
+        x = self.bn3(x)
 
         x = self.relu(x + residual)
         return x
@@ -41,7 +48,7 @@ class ResNetLayer(nn.Sequential):
         super().__init__(*layers)
 
 class ResNetModel(nn.Module):
-    def __init__(self, num_channels=[64, 128, 256, 512], num_blocks=[2, 2, 2, 2], num_classes=10):
+    def __init__(self, num_channels=[64, 512, 1024, 2048], num_blocks=[3, 4, 6, 3], num_classes=10):
         super().__init__()
         assert len(num_channels) == 4
         assert len(num_blocks) == 4
