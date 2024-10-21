@@ -9,6 +9,7 @@ from tqdm import tqdm
 import wandb
 
 from basic_model import resnet18
+from model import resnet50
 
 class DatasetWrapper(Dataset):
     def __init__(self, hf_dataset, transforms=A.Normalize()):
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     wandb.init(project="resnet", name=args.run_name)
 
     model = resnet18().to("cuda")
+    # model = resnet50().to("cuda")
     loss_func = nn.CrossEntropyLoss()
     hf_dataset = load_dataset("uoft-cs/cifar10")
 

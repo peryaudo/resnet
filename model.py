@@ -79,7 +79,5 @@ class ResNetModel(nn.Module):
         x = self.fc(x)
         return x
 
-# model = ResNetModel()
-# inputs = torch.randn(16, 3, 224, 224)
-# outputs = model(inputs)
-# print(outputs.shape)
+def resnet50():
+    return ResNetModel(num_blocks=[3, 4, 6, 3])
