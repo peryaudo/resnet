@@ -40,7 +40,13 @@ if __name__ == "__main__":
     train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
         A.HorizontalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.2),
-        A.Normalize()
+        A.Rotate(limit=10, p=0.5),
+        A.Cutout(num_holes=3,
+                 max_h_size=6,
+                 max_w_size=6,
+                 fill_value=0,
+                 p=0.5),
+        A.Normalize(),
     ]))
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=1)
     val_dataset = DatasetWrapper(hf_dataset["test"])
