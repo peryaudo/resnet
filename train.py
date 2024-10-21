@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import wandb
 
-from model import ResNetModel
+from basic_model import resnet18
 
 class DatasetWrapper(Dataset):
     def __init__(self, hf_dataset, transforms=A.Normalize()):
@@ -33,11 +33,15 @@ if __name__ == "__main__":
 
     wandb.init(project="resnet", name=args.run_name)
 
-    model = ResNetModel().to("cuda")
+    model = resnet18().to("cuda")
     loss_func = nn.CrossEntropyLoss()
     hf_dataset = load_dataset("uoft-cs/cifar10")
 
-    train_dataset = DatasetWrapper(hf_dataset["train"])
+    train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.RandomBrightnessContrast(p=0.2),
+        A.Normalize()
+    ]))
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=1)
     val_dataset = DatasetWrapper(hf_dataset["test"])
     val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=1)
