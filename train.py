@@ -40,17 +40,12 @@ if __name__ == "__main__":
     hf_dataset = load_dataset("uoft-cs/cifar10")
 
     train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
+        A.CropAndPad(px=4, p=1.0, keep_size=False),
+        A.RandomCrop(height=32, width=32, p=1.0),
         A.HorizontalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.2),
-        A.Rotate(limit=10, p=0.5),
-        A.Cutout(num_holes=3,
-                 max_h_size=6,
-                 max_w_size=6,
-                 fill_value=0,
-                 p=0.5),
         A.Normalize(),
     ]))
-    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=1)
+    train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=1)
     val_dataset = DatasetWrapper(hf_dataset["test"])
     val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=1)
 
