@@ -54,13 +54,17 @@ if __name__ == "__main__":
     val_dataset = DatasetWrapper(hf_dataset["test"])
     val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=1)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.01)
+    EPOCHS = 50
+    MAX_LR = 0.1
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=0.9, weight_decay=5e-4)
+    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=MAX_LR, epochs=EPOCHS, steps_per_epoch=len(train_dataloader))
 
     global_steps = 0
 
     # TODO: Match the performance shown in https://lightning.ai/docs/pytorch/stable/notebooks/lightning_examples/cifar10-baseline.html
 
-    for epoch in range(20):
+    for epoch in range(EPOCHS):
         for inputs, label in tqdm(train_dataloader):
             optimizer.zero_grad()
             inputs = inputs.to("cuda")
@@ -69,9 +73,10 @@ if __name__ == "__main__":
             outputs = model(inputs)
             loss = loss_func(outputs, label)
             loss.backward()
-            optimizer.step()
             if global_steps % 100 == 0:
-                wandb.log({"train/loss": loss.detach().item()}, step=global_steps)
+                wandb.log({"train/loss": loss.detach().item(), "train/leraning_rate": lr_scheduler.get_last_lr()[0]}, step=global_steps)
+            optimizer.step()
+            lr_scheduler.step()
             global_steps += 1
         print(f"epoch: {epoch} loss: {loss.detach().item()}")
 
