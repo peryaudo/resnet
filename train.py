@@ -26,6 +26,7 @@ class DatasetWrapper(Dataset):
         if len(image.shape) == 2:
             image = np.expand_dims(image, axis=-1)
             image = np.repeat(image, 3, axis=-1)
+        image = image[:,:,0:3]
         image = self.transforms(image=image)["image"]
         image = torch.from_numpy(image)
         image = torch.permute(image, (2, 0, 1))
@@ -61,8 +62,8 @@ def train_main(cfg):
     else:
         raise ValueError(f"dataset type {cfg['dataset']} not supported")
 
-    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=8)
-    val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=8)
+    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=32)
+    val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=32)
 
     if cfg["model"] == "resnet18":
         model = resnet18(num_classes=num_classes)
@@ -77,6 +78,7 @@ def train_main(cfg):
         model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
     model = model.to("cuda")
+    model = torch.compile(model)
     loss_func = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])
@@ -89,8 +91,8 @@ def train_main(cfg):
     for epoch in range(cfg["epochs"]):
         for inputs, label in tqdm(train_dataloader):
             optimizer.zero_grad()
-            inputs = inputs.to("cuda")
-            label = label.to("cuda")
+            inputs = inputs.to("cuda", non_blocking=True)
+            label = label.to("cuda", non_blocking=True)
             
             outputs = model(inputs)
             loss = loss_func(outputs, label)
@@ -107,8 +109,8 @@ def train_main(cfg):
         val_count = 0
         for inputs, label in tqdm(val_dataloader):
             with torch.no_grad():
-                inputs = inputs.to("cuda")
-                label = label.to("cuda")
+                inputs = inputs.to("cuda", non_blocking=True)
+                label = label.to("cuda", non_blocking=True)
                 outputs = model(inputs)
                 loss = loss_func(outputs, label)
                 val_loss += loss.detach().item() * inputs.size(0)
