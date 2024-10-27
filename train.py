@@ -33,10 +33,11 @@ if __name__ == "__main__":
 
     wandb.init(project="resnet", name=args.run_name)
 
-    model = resnet18().to("cuda")
+    model = resnet18()
     # model = resnet50().to("cuda")
     # For CIFAR-10
     model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+    model = model.to("cuda")
 
     loss_func = nn.CrossEntropyLoss()
     hf_dataset = load_dataset("uoft-cs/cifar10")
