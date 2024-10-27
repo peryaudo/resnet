@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import wandb
 
-from model import resnet18
+from model import resnet18, resnet34, resnet50
 
 class DatasetWrapper(Dataset):
     def __init__(self, hf_dataset, transforms=A.Normalize()):
@@ -30,16 +30,18 @@ class DatasetWrapper(Dataset):
 
 @hydra.main(version_base=None, config_path=".", config_name="config_cifar10")
 def train_main(cfg):
-    wandb.init(project="resnet", name=cfg.get("run_name", None), config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))
+    if cfg["model"] == "resnet18":
+        model = resnet18()
+    elif cfg["model"] == "resnet34":
+        model = resnet34()
+    elif cfg["model"] == "resnet50":
+        model = resnet50()
+    else:
+        raise ValueError(f"model type {cfg['model']} not supported")
 
-    model = resnet18()
-    # model = resnet50().to("cuda")
-    # For CIFAR-10
-    model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
-    model = model.to("cuda")
-
-    loss_func = nn.CrossEntropyLoss()
     if cfg["dataset"] == "cifar10":
+        model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+
         hf_dataset = load_dataset("uoft-cs/cifar10")
         train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
             A.CropAndPad(px=4, p=1.0, keep_size=False),
@@ -48,8 +50,18 @@ def train_main(cfg):
             A.Normalize(),
         ]))
         val_dataset = DatasetWrapper(hf_dataset["test"])
+    elif cfg["dataset"] == "imagenet-1k":
+        hf_dataset = load_dataset("ILSVRC/imagenet-1k")
+        train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
+            A.HorizontalFlip(p=0.5),
+            A.Normalize(),
+        ]))
+        val_dataset = DatasetWrapper(hf_dataset["test"])
     else:
         raise ValueError(f"dataset type {cfg['dataset']} not supported")
+
+    model = model.to("cuda")
+    loss_func = nn.CrossEntropyLoss()
 
     train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=8)
@@ -57,10 +69,10 @@ def train_main(cfg):
     optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=cfg["lr"], epochs=cfg["epochs"], steps_per_epoch=len(train_dataloader))
 
-    global_steps = 0
-
     # TODO: Match the performance shown in https://lightning.ai/docs/pytorch/stable/notebooks/lightning_examples/cifar10-baseline.html
 
+    wandb.init(project="resnet", name=cfg.get("run_name", None), config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))
+    global_steps = 0
     for epoch in range(cfg["epochs"]):
         for inputs, label in tqdm(train_dataloader):
             optimizer.zero_grad()
