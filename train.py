@@ -62,8 +62,8 @@ def train_main(cfg):
     else:
         raise ValueError(f"dataset type {cfg['dataset']} not supported")
 
-    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=32)
-    val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=32)
+    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=32, pin_memory=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=32, pin_memory=True)
 
     if cfg["model"] == "resnet18":
         model = resnet18(num_classes=num_classes)
@@ -78,6 +78,7 @@ def train_main(cfg):
         model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
     model = model.to("cuda")
+    model = torch.compile(model)
     loss_func = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])
