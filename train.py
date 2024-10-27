@@ -1,5 +1,3 @@
-import argparse
-
 import hydra
 from omegaconf import OmegaConf
 import albumentations as A
@@ -8,6 +6,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+import numpy as np
 import wandb
 
 from model import resnet18, resnet34, resnet50
@@ -24,6 +23,9 @@ class DatasetWrapper(Dataset):
 
     def __getitem__(self, idx):
         image = self.hf_dataset[idx][self.image_key]
+        if len(image.shape) == 2:
+            image = np.expand_dims(image, axis=-1)
+            image = np.repeat(image, 3, axis=-1)
         image = self.transforms(image=image)["image"]
         image = torch.from_numpy(image)
         image = torch.permute(image, (2, 0, 1))
@@ -45,17 +47,22 @@ def train_main(cfg):
     elif cfg["dataset"] == "imagenet-1k":
         hf_dataset = load_dataset("ILSVRC/imagenet-1k", token=True, trust_remote_code=True)
         train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
+            A.PadIfNeeded(min_height=224, min_width=224),
+            A.RandomCrop(height=224, width=224, p=1.0),
             A.HorizontalFlip(p=0.5),
             A.Normalize(),
         ]), image_key="image")
-        val_dataset = DatasetWrapper(hf_dataset["validation"], image_key="image")
+        val_dataset = DatasetWrapper(hf_dataset["validation"], A.Compose([
+                A.PadIfNeeded(min_height=224, min_width=224),
+                A.CenterCrop(height=224, width=224, p=1.0),
+                A.Normalize(),
+            ]), image_key="image")
         num_classes = 1000
     else:
         raise ValueError(f"dataset type {cfg['dataset']} not supported")
 
     train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=8)
-    breakpoint()
 
     if cfg["model"] == "resnet18":
         model = resnet18(num_classes=num_classes)
