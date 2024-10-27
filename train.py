@@ -13,7 +13,9 @@ import wandb
 from model import resnet18, resnet34, resnet50
 
 class DatasetWrapper(Dataset):
-    def __init__(self, hf_dataset, transforms=A.Normalize()):
+    def __init__(self, hf_dataset, transforms=A.Normalize(), image_key="img", label_key="label"):
+        self.image_key = image_key
+        self.label_key = label_key
         self.hf_dataset = hf_dataset.with_format("numpy")
         self.transforms = transforms
     
@@ -21,27 +23,16 @@ class DatasetWrapper(Dataset):
         return len(self.hf_dataset)
 
     def __getitem__(self, idx):
-        image = self.hf_dataset[idx]["img"]
+        image = self.hf_dataset[idx][self.image_key]
         image = self.transforms(image=image)["image"]
         image = torch.from_numpy(image)
         image = torch.permute(image, (2, 0, 1))
-        label = torch.tensor(int(self.hf_dataset[idx]["label"]))
+        label = torch.tensor(int(self.hf_dataset[idx][self.label_key]))
         return image, label
 
 @hydra.main(version_base=None, config_path=".", config_name="config_cifar10")
 def train_main(cfg):
-    if cfg["model"] == "resnet18":
-        model = resnet18()
-    elif cfg["model"] == "resnet34":
-        model = resnet34()
-    elif cfg["model"] == "resnet50":
-        model = resnet50()
-    else:
-        raise ValueError(f"model type {cfg['model']} not supported")
-
     if cfg["dataset"] == "cifar10":
-        model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
-
         hf_dataset = load_dataset("uoft-cs/cifar10")
         train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
             A.CropAndPad(px=4, p=1.0, keep_size=False),
@@ -50,21 +41,36 @@ def train_main(cfg):
             A.Normalize(),
         ]))
         val_dataset = DatasetWrapper(hf_dataset["test"])
+        num_classes = 10
     elif cfg["dataset"] == "imagenet-1k":
-        hf_dataset = load_dataset("ILSVRC/imagenet-1k")
+        hf_dataset = load_dataset("ILSVRC/imagenet-1k", token=True, trust_remote_code=True)
         train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
             A.HorizontalFlip(p=0.5),
             A.Normalize(),
-        ]))
-        val_dataset = DatasetWrapper(hf_dataset["test"])
+        ]), image_key="image")
+        val_dataset = DatasetWrapper(hf_dataset["validation"], image_key="image")
+        num_classes = 1000
     else:
         raise ValueError(f"dataset type {cfg['dataset']} not supported")
 
-    model = model.to("cuda")
-    loss_func = nn.CrossEntropyLoss()
-
     train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=8)
     val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=8)
+    breakpoint()
+
+    if cfg["model"] == "resnet18":
+        model = resnet18(num_classes=num_classes)
+    elif cfg["model"] == "resnet34":
+        model = resnet34(num_classes=num_classes)
+    elif cfg["model"] == "resnet50":
+        model = resnet50(num_classes=num_classes)
+    else:
+        raise ValueError(f"model type {cfg['model']} not supported")
+
+    if cfg["dataset"] == "cifar10":
+        model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+
+    model = model.to("cuda")
+    loss_func = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=cfg["lr"], epochs=cfg["epochs"], steps_per_epoch=len(train_dataloader))
