@@ -78,7 +78,6 @@ def train_main(cfg):
         model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
     model = model.to("cuda")
-    model = torch.compile(model)
     loss_func = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])
@@ -124,6 +123,8 @@ def train_main(cfg):
         val_loss /= val_count
         print(f"accuracy: {accuracy} val_loss: {val_loss}")
         wandb.log({"val/loss": val_loss, "val/accuracy": accuracy}, step=global_steps)
+
+    torch.save(model.state_dict(), "final_ckpt.pt")
     wandb.finish()
 
 if __name__ == "__main__":
