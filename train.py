@@ -1,5 +1,7 @@
 import argparse
 
+import hydra
+from omegaconf import OmegaConf
 import albumentations as A
 from datasets import load_dataset
 import torch
@@ -26,12 +28,9 @@ class DatasetWrapper(Dataset):
         label = torch.tensor(int(self.hf_dataset[idx]["label"]))
         return image, label
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--run_name", type=str, default=None, help="Name of the run")
-    args = parser.parse_args()
-
-    wandb.init(project="resnet", name=args.run_name)
+@hydra.main(version_base=None, config_path=".", config_name="config_cifar10")
+def train_main(cfg):
+    wandb.init(project="resnet", name=cfg.get("run_name", None), config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))
 
     model = resnet18()
     # model = resnet50().to("cuda")
@@ -40,29 +39,29 @@ if __name__ == "__main__":
     model = model.to("cuda")
 
     loss_func = nn.CrossEntropyLoss()
-    hf_dataset = load_dataset("uoft-cs/cifar10")
+    if cfg["dataset"] == "cifar10":
+        hf_dataset = load_dataset("uoft-cs/cifar10")
+        train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
+            A.CropAndPad(px=4, p=1.0, keep_size=False),
+            A.RandomCrop(height=32, width=32, p=1.0),
+            A.HorizontalFlip(p=0.5),
+            A.Normalize(),
+        ]))
+        val_dataset = DatasetWrapper(hf_dataset["test"])
+    else:
+        raise ValueError(f"dataset type {cfg['dataset']} not supported")
 
-    train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
-        A.CropAndPad(px=4, p=1.0, keep_size=False),
-        A.RandomCrop(height=32, width=32, p=1.0),
-        A.HorizontalFlip(p=0.5),
-        A.Normalize(),
-    ]))
-    train_dataloader = DataLoader(train_dataset, batch_size=256, shuffle=True, num_workers=8)
-    val_dataset = DatasetWrapper(hf_dataset["test"])
-    val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False, num_workers=8)
+    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=8)
+    val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=8)
 
-    EPOCHS = 50
-    MAX_LR = 0.1
-
-    optimizer = torch.optim.SGD(model.parameters(), lr=MAX_LR, momentum=0.9, weight_decay=5e-4)
-    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=MAX_LR, epochs=EPOCHS, steps_per_epoch=len(train_dataloader))
+    optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])
+    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=cfg["lr"], epochs=cfg["epochs"], steps_per_epoch=len(train_dataloader))
 
     global_steps = 0
 
     # TODO: Match the performance shown in https://lightning.ai/docs/pytorch/stable/notebooks/lightning_examples/cifar10-baseline.html
 
-    for epoch in range(EPOCHS):
+    for epoch in range(cfg["epochs"]):
         for inputs, label in tqdm(train_dataloader):
             optimizer.zero_grad()
             inputs = inputs.to("cuda")
@@ -99,3 +98,6 @@ if __name__ == "__main__":
         print(f"accuracy: {accuracy} val_loss: {val_loss}")
         wandb.log({"val/loss": val_loss, "val/accuracy": accuracy}, step=global_steps)
     wandb.finish()
+
+if __name__ == "__main__":
+    train_main()
