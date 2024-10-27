@@ -8,8 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import wandb
 
-from basic_model import resnet18
-from model import resnet50
+from model import resnet18
 
 class DatasetWrapper(Dataset):
     def __init__(self, hf_dataset, transforms=A.Normalize()):
@@ -36,6 +35,9 @@ if __name__ == "__main__":
 
     model = resnet18().to("cuda")
     # model = resnet50().to("cuda")
+    # For CIFAR-10
+    model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+
     loss_func = nn.CrossEntropyLoss()
     hf_dataset = load_dataset("uoft-cs/cifar10")
 
