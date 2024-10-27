@@ -1,5 +1,5 @@
-run_name: null
-model: resnet18
+run_name: "resnet50_imagenet1k_epoch50"
+model: resnet50
 dataset: imagenet-1k
 lr: 0.1
 momentum: 0.9
