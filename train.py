@@ -78,6 +78,7 @@ def train_main(cfg):
         model.conv = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 
     model = model.to("cuda")
+    model = torch.compile(model)
     loss_func = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=cfg["lr"], momentum=cfg["momentum"], weight_decay=cfg["weight_decay"])

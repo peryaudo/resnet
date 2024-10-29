@@ -1,9 +1,9 @@
 run_name: "resnet50_imagenet1k_epoch50"
 model: resnet50
 dataset: imagenet-1k
-lr: 0.1
+lr: 0.01
 momentum: 0.9
 weight_decay: 5e-4
 batch_size: 256
 eval_batch_size: 256
-epochs: 50
+epochs: 150
