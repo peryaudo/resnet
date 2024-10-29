@@ -35,6 +35,8 @@ class DatasetWrapper(Dataset):
 
 @hydra.main(version_base=None, config_path=".", config_name="config_cifar10")
 def train_main(cfg):
+    wandb.init(project="resnet", name=cfg.get("run_name", None), config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))
+
     if cfg["dataset"] == "cifar10":
         hf_dataset = load_dataset("uoft-cs/cifar10")
         train_dataset = DatasetWrapper(hf_dataset["train"], A.Compose([
@@ -86,7 +88,6 @@ def train_main(cfg):
 
     # TODO: Match the performance shown in https://lightning.ai/docs/pytorch/stable/notebooks/lightning_examples/cifar10-baseline.html
 
-    wandb.init(project="resnet", name=cfg.get("run_name", None), config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True))
     global_steps = 0
     for epoch in range(cfg["epochs"]):
         for inputs, label in tqdm(train_dataloader):
