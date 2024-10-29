@@ -1,4 +1,4 @@
-run_name: "resnet50_imagenet1k_epoch50"
+run_name: "resnet50_imagenet1k_epoch150"
 model: resnet50
 dataset: imagenet-1k
 lr: 0.01
