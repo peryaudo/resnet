@@ -64,7 +64,7 @@ def train_main(cfg):
     else:
         raise ValueError(f"dataset type {cfg['dataset']} not supported")
 
-    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=32, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True, num_workers=32, pin_memory=True, drop_last=True)
     val_dataloader = DataLoader(val_dataset, batch_size=cfg["eval_batch_size"], shuffle=False, num_workers=32)
 
     if cfg["model"] == "resnet18":
